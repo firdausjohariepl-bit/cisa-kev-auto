@@ -1,0 +1,44 @@
+name: Update CISA KEV CSV daily
+
+on:
+  schedule:
+    # Runs every day at 02:00 UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  update-kev:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas requests
+
+      - name: Run KEV update script
+        run: |
+          python update_kev.py
+
+      - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add known_exploited_vulnerabilities.csv known_exploited_vulnerabilities_min.csv
+            git commit -m "Update KEV CSV $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            git push
+          else
+            echo "No changes to commit."
+          fi
